@@ -1,0 +1,107 @@
+/*
+PreQualUtilization 
+access query 
+revised 6/2/15/14
+revised 8/17/15 - added date qualification on meeting date to ensure current period VR selections
+                - 
+*/
+SELECT 	PQVendors_with_Budget.Company_Name
+		,PQVendors_with_Budget.Custom_Project_ID_Number AS Project_ID_Number
+		,PQVendors_With_Budget.Project.Name AS Project_Name
+		,PQVendors_With_Budget.Project.Status AS Project_Status
+		,PQVendors_with_Budget.SumofCurrentBudget AS Sum_Of_Current_Budget
+		,Commitment.Custom_Project_ID_Number AS Project_ID_No
+		,Round(Commitment.OriginalCommitmentValue,0) AS Commitment_Value
+		,PQVendors_With_Budget.Record_Added_Date
+FROM 
+	(SELECT PQ_Vendor.Company_Name
+			,Vendor_With_Budget.Custom_Project_ID_Number
+			,Vendor_With_Budget.Project.Name
+			,Vendor_With_Budget.Project.Status
+			,Vendor_With_Budget.SumofCurrentBudget
+			,VR.ProjectID
+			,VR.Record_Added_Date 
+	FROM 
+			(SELECT DISTINCT PreQual_Vendor.Company_Name 
+			FROM PreQual_Vendor 
+			WHERE ((PreQual_Vendor.FY1516)="yes")
+			)  AS PQ_Vendor 
+	
+		LEFT JOIN 
+			(SELECT Project.Custom_Project_ID_Number
+					,Project.Name
+					,Project.Status
+					,VR.Selection
+					,Budget.SumOfCurrentBudget
+					,VR.ProjectID
+					,VR.Record_Added_Date 
+			FROM 
+				(
+					(SELECT Process_VR.ProjectID
+							,Process_VR.DataField_Vendor_Type
+							,Process_VR.ProcessStatus
+							,Process_VR.DataField_Selection AS Selection
+							,Record_Added_Date 
+					FROM Process_VR 
+					WHERE (((Process_VR.DataField_Vendor_Type)="consultant") 
+							AND (Not (Process_VR.ProcessStatus)="void") 
+							AND ((Process_VR.DataField_Meeting_Date)> #6/15/15#)
+							AND ((Process_VR.DataField_Selection) Is Not Null))
+					)  AS VR 
+										
+						LEFT JOIN 
+							(SELECT BudgetItems.ProjectID
+									,Sum(BudgetItems.CurrentBudget) AS SumOfCurrentBudget 
+							FROM BudgetItems 
+							GROUP BY BudgetItems.ProjectID, BudgetItems.Segment1Value 
+							HAVING ((BudgetItems.Segment1Value)="200")
+							)  AS Budget 
+					ON VR.projectid = Budget.projectid
+				) 
+			
+				LEFT JOIN Project 
+				ON VR.ProjectID = Project.ProjectID 
+				WHERE (((Project.Name) Not Like "IDIQ*") 
+				AND ((Project.Name) Not Like "*operating*") 
+				AND ((VR.Selection) Is Not Null) 
+				)
+			)  AS Vendor_with_budget 
+			
+		ON PQ_Vendor.Company_Name = Vendor_With_Budget.Selection
+	)  AS PQVendors_with_Budget 
+
+	LEFT JOIN 
+		(SELECT Project.Custom_Project_ID_Number
+				,Commitments.ProjectID
+				,Commitments.CompanyName
+				,Commitments.OriginalCommitmentValue
+				,Commitments.CommitmentDate
+				,Commitments.DateCreated
+				,Commitments.Status
+				,Commitments.CommitmentType 
+		FROM Commitments 
+			
+		INNER JOIN Project 
+			ON Commitments.ProjectID = Project.ProjectID 
+			WHERE 
+				(
+					((Commitments.DateCreated)>#6/15/15#) 
+					AND ((Commitments.Status)='Pending')	
+					AND ((Commitments.CommitmentType)<>"Purchase Order") 
+					AND (((project.status) = "cancelled" AND (not(Commitments.status) = "voided")) 
+						OR ((not(project.status)="cancelled")))
+				)  
+				OR 
+				( 
+					(((Commitments.CommitmentDate)>#6/30/15#) 
+					AND ((Commitments.Status)='Closed' Or (Commitments.Status)='Approved') ) 
+					AND ((Commitments.CommitmentType)<>"Purchase Order")  
+					AND (((project.status) = "cancelled" AND (not(Commitments.status) = "voided")) 
+						OR ((not(project.status)="cancelled")))
+				 )
+
+		)  AS Commitment 
+
+
+	ON (PQVendors_with_Budget.ProjectID = Commitment.ProjectID) AND (PQVendors_with_Budget.Company_Name = Commitment.CompanyName)
+	ORDER BY PQVendors_with_Budget.Company_Name, PQVendors_with_Budget.Custom_Project_ID_Number;
