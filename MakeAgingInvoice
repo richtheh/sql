@@ -1,0 +1,39 @@
+--ACCESS query
+--Make Aging Invoice query
+
+SELECT Project.Custom_Project_ID_Number
+	, Invoices.CompanyName
+	, Invoices.Status
+	, Invoices.InvoiceNumber
+	, Invoices.InvoiceAmount
+	, Invoices.DateReceived
+	, Invoices.Custom_Invoice_Date
+	, Invoices.DateCreated
+	, Invoices.ApprovedByDate
+	, Invoices.DatePaid
+	, Invoices.Custom_Check_Date
+	, Invoices.Custom_Check_Number
+	, DateDiff("d",[DateReceived],[datepaid]) AS Age
+	, Switch([age]<8,"0-7"
+			, [Age]<16,"8-15"
+			, [age]<23,"16-22"
+			, [age]<31,"23-30"
+			, [age]>30,"31+") AS AgeBucket
+	, Invoices.ControllingProcess
+	, Month([DateReceived]) AS MonthNumber
+	, Switch([MonthNumber]=1,"JAN"
+			,[MonthNumber]=2,"FEB"
+            ,[MonthNumber]=3,"MAR"
+            ,[MonthNumber]=4,"APR"
+            ,[MonthNumber]=5,"MAY"
+            ,[MonthNumber]=6,"JUN"
+            ,[MonthNumber]=7,"JUL"
+            ,[MonthNumber]=8,"AUG"
+            ,[MonthNumber]=9,"SEP"
+            ,[MonthNumber]=10,"OCT"
+            ,[MonthNumber]=11,"NOV"
+            ,[MonthNumber]=12,"DEC") AS MON
+		, Year([datereceived]) AS [Year]
+		, IIf(Month([DateReceived])<=6,"FY" & (Year([DateReceived])-1) & "/" & Right(Year([DateReceived]),2),"FY" & Year([DateReceived]) & "/" & Right((Year([DateReceived])+1),2)) AS FY, Invoices.Record_Added_Date INTO AgingInvoice
+FROM Invoices INNER JOIN Project ON Invoices.ProjectID = Project.ProjectID
+WHERE (((Invoices.Status)="paid") AND ((Invoices.ControllingProcess) Like "ia*"));
