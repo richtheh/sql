@@ -1,0 +1,33 @@
+--ACCESS query
+--MAKEAGINGCA
+--
+SELECT Project.Custom_Project_ID_Number
+	, Commitments.CompanyName
+	, Commitments.Status
+	, Commitments.CommitmentNumber
+	, Commitments.OriginalCommitmentValue
+	, Commitments.DateCreated
+	, Commitments.ApprovedDate
+	, (DateDiff("d",[DateCreated],[ApprovedDate])) AS Age
+	, (Switch([age]<8,"0-7"
+			,[Age]<16,"8-15"
+			,[age]<23,"16-22"
+			,[age]<31,"23-30"
+			,[age]>30,"31+")) AS AgeBucket
+	, (Month([DateCreated])) AS MonthNumber
+	, (Switch([MonthNumber]=1,"JAN"
+			,[MonthNumber]=2,"FEB"
+			,[MonthNumber]=3,"MAR"
+			,[MonthNumber]=4,"APR"
+			,[MonthNumber]=5,"MAY"
+			,[MonthNumber]=6,"JUN"
+			,[MonthNumber]=7,"JUL"
+			,[MonthNumber]=8,"AUG"
+			,[MonthNumber]=9,"SEP"
+			,[MonthNumber]=10,"OCT"
+			,[MonthNumber]=11,"NOV"
+			,[MonthNumber]=12,"DEC")) AS MON
+	, (Year([dateCreated])) AS [Year]
+	, (IIf(Month([DateCreated])<=6,"FY" & (Year([DateCreated])-1) & "/" & Right(Year([DateCreated]),2),"FY" & Year([DateCreated]) & "/" & Right((Year([DateCreated])+1),2))) AS FY, Commitments.Record_added_date INTO AgingCA
+FROM Commitments INNER JOIN Project ON Commitments.ProjectID = Project.ProjectID
+WHERE (((Commitments.Status)="approved" Or (Commitments.Status)="closed") AND ((Commitments.CommitmentNumber) Like "ca*"));
